@@ -30,61 +30,62 @@ def create_gui(root, columns):
         print(f"Error setting logo: {str(e)}")
     
     style = ttk.Style()
-    style.theme_create("modern", parent="clam", settings={
-        "TCheckbutton": {
-            "configure": {
-                "font": ('Helvetica', 10),
-                "padding": 6,
-                "background": '#ffffff',
-                "foreground": '#000000',
-                "indicatorbackground": '#ffffff',
-                "indicatorforeground": '#007bff',
-                "indicatormargin": [2, 2, 2, 2]
+    if "modern" not in style.theme_names():
+        style.theme_create("modern", parent="clam", settings={
+            "TCheckbutton": {
+                "configure": {
+                    "font": ('Helvetica', 10),
+                    "padding": 6,
+                    "background": '#ffffff',
+                    "foreground": '#000000',
+                    "indicatorbackground": '#ffffff',
+                    "indicatorforeground": '#007bff',
+                    "indicatormargin": [2, 2, 2, 2]
+                },
+                "map": {
+                    "background": [("selected", '#ffffff'), ("!selected", '#ffffff')],
+                    "foreground": [("selected", '#000000'), ("!selected", '#000000')],
+                    "indicatorbackground": [("selected", '#007bff'), ("!selected", '#ffffff')],
+                    "indicatorforeground": [("selected", '#ffffff'), ("!selected", '#000000')]
+                }
             },
-            "map": {
-                "background": [("selected", '#ffffff'), ("!selected", '#ffffff')],
-                "foreground": [("selected", '#000000'), ("!selected", '#000000')],
-                "indicatorbackground": [("selected", '#007bff'), ("!selected", '#ffffff')],
-                "indicatorforeground": [("selected", '#ffffff'), ("!selected", '#000000')]
-            }
-        },
-        "Disabled.TCheckbutton": {
-            "configure": {
-                "font": ('Helvetica', 10),
-                "padding": 6,
-                "background": '#ffffff',
-                "foreground": '#808080',
-                "indicatorbackground": '#e0e0e0',
-                "indicatorforeground": '#808080'
+            "Disabled.TCheckbutton": {
+                "configure": {
+                    "font": ('Helvetica', 10),
+                    "padding": 6,
+                    "background": '#ffffff',
+                    "foreground": '#808080',
+                    "indicatorbackground": '#e0e0e0',
+                    "indicatorforeground": '#808080'
+                },
+                "map": {
+                    "background": [("disabled", '#ffffff')],
+                    "foreground": [("disabled", '#808080')],
+                    "indicatorbackground": [("disabled", '#e0e0e0')],
+                    "indicatorforeground": [("disabled", '#808080')]
+                }
             },
-            "map": {
-                "background": [("disabled", '#ffffff')],
-                "foreground": [("disabled", '#808080')],
-                "indicatorbackground": [("disabled", '#e0e0e0')],
-                "indicatorforeground": [("disabled", '#808080')]
-            }
-        },
-        "TButton": {
-            "configure": {
-                "font": ('Helvetica', 10, 'bold'),
-                "padding": 10,
-                "background": '#00b7eb',
-                "foreground": '#000000',
-                "borderwidth": 0,
-                "focusthickness": 0,
-                "relief": 'flat'
+            "TButton": {
+                "configure": {
+                    "font": ('Helvetica', 10, 'bold'),
+                    "padding": 10,
+                    "background": '#00b7eb',
+                    "foreground": '#000000',
+                    "borderwidth": 0,
+                    "focusthickness": 0,
+                    "relief": 'flat'
+                },
+                "map": {
+                    "background": [("active", '#00a3d6'), ("!active", '#00b7eb')],
+                    "foreground": [("active", '#000000'), ("!active", '#000000')]
+                }
             },
-            "map": {
-                "background": [("active", '#00a3d6'), ("!active", '#00b7eb')],
-                "foreground": [("active", '#000000'), ("!active", '#000000')]
+            "TFrame": {
+                "configure": {
+                    "background": '#ffffff'
+                }
             }
-        },
-        "TFrame": {
-            "configure": {
-                "background": '#ffffff'
-            }
-        }
-    })
+        })
     style.theme_use("modern")
     style.configure("TButton", bordercolor='#00b7eb', lightcolor='#00e6ff', darkcolor='#008bb5', anchor='center')
     
@@ -97,6 +98,10 @@ def create_gui(root, columns):
         interleave_state = vars_dict['Interleavemode'].get()
         for col in interleave_cols:
             vars_dict[col].set(interleave_state)
+            # Update style based on Interleavemode state
+            for widget in frame.winfo_children():
+                if isinstance(widget, ttk.Checkbutton) and widget.cget("text") == col:
+                    widget.configure(style='Disabled.TCheckbutton' if not interleave_state else 'TCheckbutton')
     
     select_all_var = tk.BooleanVar(value=False)
     def toggle_select_all():
@@ -126,7 +131,7 @@ def create_gui(root, columns):
         if col == 'Interleavemode':
             cb = ttk.Checkbutton(frame, text=col, variable=vars_dict[col], command=update_interleave_cols)
         else:
-            cb = ttk.Checkbutton(frame, text=col, variable=vars_dict[col], style='Disabled.TCheckbutton')
+            cb = ttk.Checkbutton(frame, text=col, variable=vars_dict[col], style='Disabled.TCheckbutton' if not vars_dict['Interleavemode'].get() else 'TCheckbutton')
         cb.grid(row=row, column=interleave_start_col, sticky=tk.W, padx=10, pady=3)
     
     remaining_columns = [col for col in columns if col not in interesting_columns and col != 'Interleavemode' and col not in interleave_cols]
@@ -307,18 +312,7 @@ def correct_units_and_values(dictt, Columns, NVP, Unit_dict):
         dictt['Samples per line'] = str(int(float(dictt['Samples per line'])))
     return dictt
 
-from pySPM import Bruker
-import pandas as pd
-import tkinter as tk
-from tkinter import ttk, filedialog as fd, messagebox as mb
-from os.path import dirname, join
-import logging
-import re
-import os
 
-# Setup logging
-logging.basicConfig(level=logging.DEBUG, filename='script.log', filemode='a')
-logging.debug("Script started")
 
 # [create_gui, retrieve_data, retreive_num_val, correct_units_and_values unchanged]
 
@@ -356,8 +350,8 @@ def main():
         b'Number of lines', b'Aspect Ratio', b'Line Direction', b'@2:Image Data'
     ]
     
+    root = tk.Tk()
     while True:
-        root = tk.Tk()
         try:
             selected_columns = create_gui(root, [col for col in Columns if col != 'Channel No.'] + ['Filename'])
         except Exception as e:
@@ -401,7 +395,6 @@ def main():
                 logging.debug("No files selected, reopening GUI.")
                 print("No files selected, reopening GUI.")
                 mb.showwarning("No Files Selected", "Please select valid .spm files.")
-                root.destroy()
                 continue
         except Exception as e:
             logging.debug(f"Error in file dialog: {str(e)}")
@@ -420,7 +413,6 @@ def main():
                 logging.debug("No files selected, reopening GUI.")
                 print("No files selected, reopening GUI.")
                 mb.showwarning("No Files Selected", "Please select valid .spm files.")
-                root.destroy()
                 continue
         
         # Validate extensions
@@ -435,12 +427,14 @@ def main():
                 invalid_extensions.append(d)
                 logging.debug(f"Invalid extension detected: {d}")
         
-        # Show warning for invalid files but continue if valid files exist
+        # Show warning for invalid files and exit if no valid files
         if invalid_extensions:
             invalid_msg = "The following files have unsupported extensions and will be skipped:\n" + "\n".join(invalid_extensions) + "\n\nProcessing valid .spm files."
             mb.showwarning("Invalid Files Skipped", invalid_msg)
             logging.debug(invalid_msg)
             print(invalid_msg)
+            if not valid_files:
+                continue
         
         max_channels = 0
         channel_counts = {}
@@ -492,25 +486,15 @@ def main():
                 invalid_files.append(d)
                 continue
         
-        if not raw_data:
-            logging.debug("No valid files processed, reopening GUI.")
-            print("No valid files processed, reopening GUI.")
+        if invalid_files and not raw_data:
             invalid_msg = "The following files were not processed due to incompatible format or errors:\n" + "\n".join(invalid_files) + "\n\nPlease choose valid .spm files."
             mb.showwarning("No Valid Files Processed", invalid_msg)
-            root.destroy()
             continue
-        
-        if invalid_files:
-            invalid_msg = "The following files were not processed due to incompatible format or errors:\n" + "\n".join(invalid_files)
-            mb.showwarning("Invalid Files Skipped", invalid_msg)
-            logging.debug(invalid_msg)
-            print(invalid_msg)
         
         # Show missing columns warning for channel 1 only
         if all_channel1_missing_columns:
             missing_msg = "\n".join(f"Missing data for column {col}" for col in sorted(all_channel1_missing_columns))
-            mb.showwarning("Missing Metadata in Channel 1", missing_msg + "\nThese columns will appear as 'missing' in the Excel output.")
-            logging.debug(f"Missing columns in channel 1: {all_channel1_missing_columns}")
+            logging.debug(f"Missing columns: {all_channel1_missing_columns}")
         
         outer_list = []
         for channel in range(0, max_channels):
@@ -532,7 +516,7 @@ def main():
                 format1 = workbook.add_format({'num_format': '#,##0.00', 'align': 'center'})
                 format1.set_font_size(8)
                 format2 = workbook.add_format({'num_format': '@', 'align': 'right'})
-                format2.set_font_size(8)
+                format2.set_font_size(14)
                 format_index = workbook.add_format({'align': 'center'})
                 format_index.set_font_size(8)
                 worksheet.set_column(0, 0, 5, format_index)
@@ -545,10 +529,6 @@ def main():
         mb.showinfo("Success", success_msg)
         logging.debug(success_msg)
         print(success_msg)
-        
-        root.destroy()
-        logging.debug("Script completed")
-        break
 
 if __name__ == '__main__':
     main()
