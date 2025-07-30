@@ -2,11 +2,17 @@ from pySPM import Bruker
 import pandas as pd
 import tkinter as tk
 from tkinter import ttk, filedialog as fd, messagebox as mb
-from os.path import dirname, join,basename
+import os
+import sys
+from os.path import dirname, join,abspath
 import logging
+import subprocess
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG, filename='script.log', filemode='a')
+log_dir = os.path.join(os.getenv('LOCALAPPDATA'), 'Meta_Data_Reader')
+os.makedirs(log_dir, exist_ok=True)  # Create directory if it doesn't exist
+log_file = os.path.join(log_dir, 'script.log')
+logging.basicConfig(level=logging.DEBUG, filename=log_file, filemode='a')
 logging.debug("Script started")
 
 def create_gui(root, columns):
@@ -22,8 +28,13 @@ def create_gui(root, columns):
     root.configure(bg='#ffffff')
     
     try:
-        logo = tk.PhotoImage(file='logo.png')
-        root.iconphoto(True, logo)
+        # Determine logo path
+        if getattr(sys, 'frozen', False):  # PyInstaller executable
+            base_path = sys._MEIPASS
+        else:  # Running as script
+            base_path = os.path.dirname(__file__)
+        logo_path = os.path.join(base_path, 'logo.ico')
+        root.iconbitmap(logo_path)  # Use .ico with iconbitmap
         logging.debug("Custom logo set successfully")
     except Exception as e:
         logging.debug(f"Error setting logo: {str(e)}")
@@ -505,7 +516,7 @@ def main():
                     inner_list[-1].update({'Filename': valid_files[file]})
             outer_list.append(inner_list)
         
-        target_path = join(dirname(valid_files[0]), f'Meta_Data_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S")}.xlsx')
+        target_path = join(dirname(abspath(valid_files[0])), f'Meta_Data_{datetime.now().strftime("%Y.%m.%d_%H.%M.%S")}.xlsx')
         with pd.ExcelWriter(target_path) as writer:
             for i in range(0, len(outer_list)):
                 df = pd.DataFrame(outer_list[i])
@@ -520,15 +531,23 @@ def main():
                 format_index = workbook.add_format({'align': 'center'})
                 format_index.set_font_size(8)
                 worksheet.set_column(0, 0, 5, format_index)
-                for col in range(1, len(filtered_order) + 1):
+                for col in range(1, len(filtered_order) + 1):  # Fixed: len(filtered_order) + 1
                     if filtered_order[col - 1] == 'Filename':
                         worksheet.set_column(col, col, 30, format2)
                     else:
                         worksheet.set_column(col, col, 20, format1)
+        # Open file browser at the directory containing the Excel file
+        directory = dirname(abspath(target_path))
+        if os.path.exists(directory):
+            logging.debug(f"Opening file browser at: {directory}")
+            subprocess.run(["explorer", directory], shell=True)
+        else:
+            logging.debug(f"Directory not found: {directory}, opening Documents instead")
+            subprocess.run(["explorer", os.path.expanduser("~/Documents")], shell=True)
         success_msg = f"Excel file created successfully at {target_path}\n\n{len(raw_data)} files processed successfully."
         mb.showinfo("Success", success_msg)
         logging.debug(success_msg)
         print(success_msg)
-
+    
 if __name__ == '__main__':
     main()
